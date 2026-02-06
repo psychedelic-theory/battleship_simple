@@ -368,6 +368,12 @@ function resetUIOnly() {
 }
 
 async function startGame() {
+  // If a game is already running, don't restart it.
+  if (started && !gameOver) {
+    setStatus(`Game already running. Keep firing on the computer board.`);
+    return;
+  }
+  
   // Reset UI first so old marks disappear
   resetUIOnly();
 
