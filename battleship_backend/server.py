@@ -14,6 +14,8 @@ CORS(app)
 
 BOARD_N = 10
 SHIP_SIZES = [2, 3, 5]
+# Setup placement order (largest to smallest)
+SETUP_ORDER = [5, 3, 2]
 Coord = Tuple[int, int]
 
 
@@ -56,11 +58,14 @@ class Ship:
 @dataclass
 class GameState:
     game_id: str
-    start_time: float
 
-    # Player's own ships live on player board
+    # phases: "setup" -> "play" -> "over"
+    phase: str
+
+    start_time: Optional[float]
+
+    # Player and CPU fleets
     player_ships: List[Ship]
-    # Computer's ships live on computer board
     cpu_ships: List[Ship]
 
     # What each side has fired at
@@ -73,24 +78,22 @@ class GameState:
     cpu_hits: int
     cpu_misses: int
 
-    over: bool
+    # Setup progress
+    setup_index: int  # which ship in SETUP_ORDER is next
 
-    def find_ship_at(self, ships: List[Ship], cell: Coord) -> Optional[Ship]:
-        for s in ships:
-            if cell in s.cells:
-                return s
-        return None
+    @property
+    def over(self) -> bool:
+        return self.phase == "over"
 
 
 GAMES: Dict[str, GameState] = {}
 
 
-def random_place_ships_no_adjacent() -> List[Ship]:
+def random_place_ships_no_adjacent(sizes: List[int]) -> List[Ship]:
     occupied: Set[Coord] = set()
     ships: List[Ship] = []
 
     def can_place(cells: List[Coord]) -> bool:
-        # Disallow overlap AND adjacency (including diagonals)
         for (r, c) in cells:
             if (r, c) in occupied:
                 return False
@@ -99,7 +102,7 @@ def random_place_ships_no_adjacent() -> List[Ship]:
                     return False
         return True
 
-    for size in SHIP_SIZES:
+    for size in sizes:
         placed = False
         for _ in range(4000):
             horizontal = random.choice([True, False])
@@ -138,11 +141,11 @@ def all_sunk(ships: List[Ship]) -> bool:
 
 
 def apply_shot(ships: List[Ship], fired: Set[Coord], cell: Coord) -> Dict:
-    """Apply a shot to the target fleet. Returns result + optional ring marks."""
     if cell in fired:
         return {"result": "repeat", "ring_marks": []}
 
     fired.add(cell)
+
     ship = None
     for s in ships:
         if cell in s.cells:
@@ -152,7 +155,6 @@ def apply_shot(ships: List[Ship], fired: Set[Coord], cell: Coord) -> Dict:
     ring_marks_payload = []
     if ship:
         ship.hits.add(cell)
-        # if sunk, provide ring marks (not counted as fired)
         if ship.sunk:
             ring = ring_around(ship.cells)
             ring = {p for p in ring if p not in fired}
@@ -163,7 +165,6 @@ def apply_shot(ships: List[Ship], fired: Set[Coord], cell: Coord) -> Dict:
 
 
 def pick_cpu_shot(game: GameState) -> Coord:
-    """Very simple CPU: random untargeted square on player board."""
     while True:
         r = random.randrange(BOARD_N)
         c = random.randrange(BOARD_N)
@@ -171,17 +172,36 @@ def pick_cpu_shot(game: GameState) -> Coord:
             return (r, c)
 
 
-@app.post("/start")
-def start():
-    game_id = str(uuid.uuid4())
+def can_place_player_ship(game: GameState, cells: List[Coord]) -> bool:
+    # current occupied cells (player)
+    occupied: Set[Coord] = set()
+    for s in game.player_ships:
+        occupied |= s.cells
 
-    player_ships = random_place_ships_no_adjacent()
-    cpu_ships = random_place_ships_no_adjacent()
+    # overlap + adjacency + bounds
+    for (r, c) in cells:
+        if not in_bounds(r, c):
+            return False
+        if (r, c) in occupied:
+            return False
+        for nb in neighbors8((r, c)):
+            if nb in occupied:
+                return False
+
+    return True
+
+
+@app.post("/new")
+def new_game():
+    """Create a new SETUP session. CPU ships are placed, player ships are empty."""
+    game_id = str(uuid.uuid4())
+    cpu_ships = random_place_ships_no_adjacent(SHIP_SIZES)
 
     GAMES[game_id] = GameState(
         game_id=game_id,
-        start_time=time.time(),
-        player_ships=player_ships,
+        phase="setup",
+        start_time=None,
+        player_ships=[],
         cpu_ships=cpu_ships,
         player_fired=set(),
         cpu_fired=set(),
@@ -189,15 +209,92 @@ def start():
         player_misses=0,
         cpu_hits=0,
         cpu_misses=0,
-        over=False,
+        setup_index=0,
     )
 
     return jsonify({
         "ok": True,
         "game_id": game_id,
-        # We reveal ONLY the player's ship positions
-        "player_ship_cells": ships_to_cells(player_ships),
+        "phase": "setup",
+        "next_ship_size": SETUP_ORDER[0],
+        "setup_order": SETUP_ORDER,
+        "player_ship_cells": [],  # none yet
     })
+
+
+@app.post("/place")
+def place():
+    """
+    Place one player ship during setup.
+    Body: { game_id, row, col, horizontal }
+    Places the NEXT ship size from SETUP_ORDER.
+    """
+    data = request.get_json(silent=True) or {}
+    game_id = data.get("game_id")
+    row = data.get("row")
+    col = data.get("col")
+    horizontal = data.get("horizontal")
+
+    if not game_id or game_id not in GAMES:
+        return jsonify({"ok": False, "error": "Invalid or missing game_id"}), 400
+
+    game = GAMES[game_id]
+    if game.phase != "setup":
+        return jsonify({"ok": False, "error": "Not in setup phase"}), 400
+
+    if not isinstance(row, int) or not isinstance(col, int) or not isinstance(horizontal, bool):
+        return jsonify({"ok": False, "error": "Invalid placement payload"}), 400
+
+    if game.setup_index >= len(SETUP_ORDER):
+        return jsonify({"ok": False, "error": "All ships already placed"}), 400
+
+    size = SETUP_ORDER[game.setup_index]
+    cells: List[Coord] = []
+    if horizontal:
+        cells = [(row, col + i) for i in range(size)]
+    else:
+        cells = [(row + i, col) for i in range(size)]
+
+    if not can_place_player_ship(game, cells):
+        return jsonify({"ok": False, "error": "Invalid placement (overlap/adjacent/out-of-bounds)"}), 400
+
+    ship_cells = set(cells)
+    game.player_ships.append(Ship(cells=ship_cells, hits=set()))
+    game.setup_index += 1
+
+    setup_done = (game.setup_index >= len(SETUP_ORDER))
+    next_size = None if setup_done else SETUP_ORDER[game.setup_index]
+
+    return jsonify({
+        "ok": True,
+        "placed_cells": [{"row": r, "col": c} for (r, c) in cells],
+        "player_ship_cells": ships_to_cells(game.player_ships),
+        "setup_done": setup_done,
+        "next_ship_size": next_size,
+        "phase": game.phase,
+    })
+
+
+@app.post("/begin")
+def begin():
+    """Transition from setup -> play. Starts the clock."""
+    data = request.get_json(silent=True) or {}
+    game_id = data.get("game_id")
+
+    if not game_id or game_id not in GAMES:
+        return jsonify({"ok": False, "error": "Invalid or missing game_id"}), 400
+
+    game = GAMES[game_id]
+    if game.phase != "setup":
+        return jsonify({"ok": False, "error": "Game is not in setup phase"}), 400
+
+    if game.setup_index < len(SETUP_ORDER):
+        return jsonify({"ok": False, "error": "Place all ships before starting"}), 400
+
+    game.phase = "play"
+    game.start_time = time.time()
+
+    return jsonify({"ok": True, "phase": "play"})
 
 
 @app.post("/fire")
@@ -212,8 +309,11 @@ def fire():
 
     game = GAMES[game_id]
 
+    if game.phase != "play":
+        return jsonify({"ok": False, "error": "Game is not in play phase"}), 400
+
     if game.over:
-        elapsed = int(time.time() - game.start_time)
+        elapsed = int(time.time() - (game.start_time or time.time()))
         return jsonify({
             "ok": True,
             "game_over": True,
@@ -237,9 +337,8 @@ def fire():
     elif player_shot["result"] == "miss":
         game.player_misses += 1
 
-    # If player repeats, do NOT allow CPU to also shoot (keeps turn logic clean)
     if player_shot["result"] == "repeat":
-        elapsed = int(time.time() - game.start_time)
+        elapsed = int(time.time() - (game.start_time or time.time()))
         return jsonify({
             "ok": True,
             "player_shot": {"row": row, "col": col, "result": "repeat"},
@@ -254,10 +353,9 @@ def fire():
             "cpu_misses": game.cpu_misses,
         })
 
-    # Check if player won
     if all_sunk(game.cpu_ships):
-        game.over = True
-        elapsed = int(time.time() - game.start_time)
+        game.phase = "over"
+        elapsed = int(time.time() - (game.start_time or time.time()))
         return jsonify({
             "ok": True,
             "player_shot": {"row": row, "col": col, "result": player_shot["result"]},
@@ -282,10 +380,9 @@ def fire():
     elif cpu_shot["result"] == "miss":
         game.cpu_misses += 1
 
-    # Check if CPU won
     if all_sunk(game.player_ships):
-        game.over = True
-        elapsed = int(time.time() - game.start_time)
+        game.phase = "over"
+        elapsed = int(time.time() - (game.start_time or time.time()))
         return jsonify({
             "ok": True,
             "player_shot": {"row": row, "col": col, "result": player_shot["result"]},
@@ -301,7 +398,7 @@ def fire():
             "cpu_misses": game.cpu_misses,
         })
 
-    elapsed = int(time.time() - game.start_time)
+    elapsed = int(time.time() - (game.start_time or time.time()))
     return jsonify({
         "ok": True,
         "player_shot": {"row": row, "col": col, "result": player_shot["result"]},
@@ -319,8 +416,9 @@ def fire():
 
 @app.get("/health")
 def health():
-    return jsonify({"ok": True, "service": "battleship-v2-turn-based"})
+    return jsonify({"ok": True, "service": "battleship-v2-setup+turn-based"})
 
 
 if __name__ == "__main__":
+    # debug=True while developing; set to False for submission stability
     app.run(host="127.0.0.1", port=5001, debug=True)

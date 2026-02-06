@@ -235,5 +235,15 @@ body{
     0 0 18px rgba(0,160,255,.18);
 }
 
+.cell.preview{
+  outline: 2px solid rgba(0,160,255,.7);
+  box-shadow: 0 0 14px rgba(0,160,255,.18);
+}
+.cell.previewBad{
+  outline: 2px solid rgba(255,59,59,.7);
+  box-shadow: 0 0 14px rgba(255,59,59,.15);
+}
+
+
 /* Optional: make player-board cells feel “read-only” */
 #playerGridWrap .cell{ cursor: default; }
