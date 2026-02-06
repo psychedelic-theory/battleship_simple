@@ -8,7 +8,9 @@ The backend is "server-truth": the client UI never decides hits, misses, sinking
 browser only sends actions to the server, and the server returns JSON results that the UI renders.
 
 Frontend: HTML/CSS/JS (served via XAMPP/Apache)
-Backend: Python + Flask (runs as a separate local server)
+Backend: Python + Flask (runs as a separate local server)\
+
+Loom Recording Link: https://www.loom.com/share/cf54c11ea1644e698eb6df150d1a4d3f 
 
 Two Major Iterations (Beyond Baseline)
 -------------------------------------
