@@ -1,0 +1,239 @@
+:root{
+  --bg:#071423;
+  --panel:#0b1f33;
+  --panel2:#0d2740;
+  --line:#153a57;
+  --text:#d9e6f2;
+  --muted:#9cb5c9;
+
+  --hit:#ff3b3b;
+  --miss:#35e37a;
+
+  --shadow: 0 10px 25px rgba(0,0,0,.35);
+  --radius: 16px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(34,132,255,.25), transparent 55%),
+    radial-gradient(900px 500px at 95% 10%, rgba(0,255,200,.10), transparent 60%),
+    linear-gradient(180deg, #06111d, var(--bg));
+  color:var(--text);
+}
+
+.app{
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 18px;
+}
+
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(12,35,58,.9), rgba(8,20,35,.75));
+  border: 1px solid rgba(21,58,87,.7);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.brand{display:flex; align-items:center; gap:12px}
+.logo{
+  width:44px;height:44px;border-radius:14px;
+  display:grid;place-items:center;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.15), rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.08);
+  font-size:22px;
+}
+.title{font-weight:900; letter-spacing:.12em}
+.subtitle{color:var(--muted); font-size:12px}
+
+.hud{display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end}
+.hudCard{
+  min-width:92px;
+  padding:10px 12px;
+  background: rgba(11,31,51,.8);
+  border:1px solid rgba(21,58,87,.7);
+  border-radius: 14px;
+}
+.hudLabel{color:var(--muted); font-size:12px}
+.hudValue{font-size:18px; font-weight:800}
+
+.btn{
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor:pointer;
+  transition: transform .06s ease, background .2s ease;
+}
+.btn:hover{background: rgba(255,255,255,.10)}
+.btn:active{transform: translateY(1px)}
+.btn.primary{
+  background: linear-gradient(180deg, rgba(0,160,255,.25), rgba(0,160,255,.10));
+  border-color: rgba(0,160,255,.35);
+}
+
+.main{
+  margin-top: 14px;
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (max-width: 980px){
+  .main{grid-template-columns:1fr}
+}
+
+.panel{
+  background: linear-gradient(180deg, rgba(11,31,51,.88), rgba(9,25,41,.88));
+  border:1px solid rgba(21,58,87,.7);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.panelHeader{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom: 10px;
+}
+.panelTitle{font-weight:800; letter-spacing:.06em}
+.status{color:var(--muted); font-size:13px}
+
+.gridWrap{
+  overflow:auto;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(10,28,46,.9), rgba(8,20,35,.95));
+  border:1px solid rgba(21,58,87,.7);
+  border-radius: 14px;
+}
+
+.grid{
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0 auto;
+}
+
+.grid th, .grid td{
+  width: 44px;
+  height: 44px;
+  text-align:center;
+  vertical-align:middle;
+  position:relative;
+}
+
+.grid th{
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.cell{
+  cursor:pointer;
+  border: 1px solid rgba(21,58,87,.8);
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border-radius: 10px;
+  transition: background .2s ease, transform .06s ease;
+}
+.cell:hover{
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.10), rgba(255,255,255,.03));
+}
+.cell:active{transform: translateY(1px)}
+.cell.disabled{cursor:not-allowed; opacity:.65;}
+
+.xMark{
+  font-weight: 900;
+  font-size: 22px;
+  line-height: 1;
+  user-select:none;
+  text-shadow: 0 0 14px rgba(255,255,255,.10);
+}
+.hit .xMark{color: var(--hit)}
+.miss .xMark{color: var(--miss)}
+.ring .xMark{color: rgba(255,59,59,.45)} /* “hit marker around sunk ship” */
+
+.legend{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+.chip{
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px;
+  background: rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.x{
+  width:18px;height:18px;border-radius:6px;
+  display:grid;place-items:center;
+  border:1px solid rgba(255,255,255,.10);
+}
+.hitX::before{content:"X"; color: var(--hit); font-weight:900}
+.missX::before{content:"X"; color: var(--miss); font-weight:900}
+.ringX::before{content:"X"; color: rgba(255,59,59,.45); font-weight:900}
+
+.side{display:grid; grid-template-columns: 1fr 1fr; gap: 14px;}
+@media (max-width: 980px){
+  .side{ grid-template-columns: 1fr; }
+}
+.card{
+  background: linear-gradient(180deg, rgba(13,39,64,.85), rgba(10,28,46,.85));
+  border:1px solid rgba(21,58,87,.7);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+.cardTitle{font-weight:800; margin-bottom:8px}
+.card ul{margin:0; padding-left: 18px; color: var(--muted)}
+.finalText{color: var(--text); line-height: 1.45}
+
+.footer{
+  margin-top: 14px;
+  text-align:center;
+  color: rgba(156,181,201,.75);
+  font-size: 12px;
+}
+
+.boards{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+}
+@media (max-width: 980px){
+  .boards{grid-template-columns:1fr}
+}
+
+.statusSmall{
+  color: rgba(156,181,201,.75);
+  font-size: 12px;
+  text-align: right;
+}
+
+.ship{
+  background: radial-gradient(circle at 30% 30%, rgba(0,160,255,.18), rgba(255,255,255,.02));
+  border-color: rgba(0,160,255,.35);
+}
+
+.cell.ship{
+  opacity: 1 !important;                 /* overrides .cell.disabled opacity */
+  background: linear-gradient(180deg,
+    rgba(0,160,255,.42),
+    rgba(0,160,255,.16)
+  );
+  border-color: rgba(0,160,255,.65);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.10),
+    0 0 18px rgba(0,160,255,.18);
+}
+
+/* Optional: make player-board cells feel “read-only” */
+#playerGridWrap .cell{ cursor: default; }

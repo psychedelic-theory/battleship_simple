@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Battleship (Server-Truth)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">⚓</div>
+        <div>
+          <div class="title">BATTLESHIP</div>
+          <div class="subtitle">Server-truth • Computer Opponent</div>
+        </div>
+      </div>
+
+      <div class="hud">
+        <div class="hudCard">
+          <div class="hudLabel">Player H/M</div>
+          <div class="hudValue"><span id="pHits">0</span>/<span id="pMisses">0</span></div>
+        </div>
+        <div class="hudCard">
+          <div class="hudLabel">CPU H/M</div>
+          <div class="hudValue"><span id="cHits">0</span>/<span id="cMisses">0</span></div>
+        </div>
+        <button id="startBtn" class="btn primary">Start Game</button>
+        <button id="resetBtn" class="btn">New Game</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel">
+        <div class="panelHeader">
+          <div class="panelTitle">Target Grid (A1–J10)</div>
+          <div id="status" class="status">Press <b>Start Game</b> to begin.</div>
+        </div>
+
+        <div class="boards">
+          <section class="panel">
+            <div class="panelHeader">
+              <div class="panelTitle">Player Board (Your Ships)</div>
+              <div class="statusSmall">Computer shoots here</div>
+            </div>
+            <div id="playerGridWrap" class="gridWrap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panelHeader">
+              <div class="panelTitle">Computer Board (Target)</div>
+              <div class="statusSmall">Click squares to fire</div>
+            </div>
+            <div id="cpuGridWrap" class="gridWrap"></div>
+          </section>
+        </div>
+
+        <div class="legend">
+          <div class="chip"><span class="x hitX"></span> Hit (red X)</div>
+          <div class="chip"><span class="x missX"></span> Miss (green X)</div>
+          <div class="chip"><span class="x ringX"></span> Sunk ring marker (faded red X)</div>
+        </div>
+      </section>
+
+      <section class="side">
+        <div class="card">
+          <div class="cardTitle">How to Play</div>
+          <ul>
+            <li>Click <b>Start Game</b> to begin the clock.</li>
+            <li>Click a cell to fire at that coordinate.</li>
+            <li>The server decides <b>hit/miss</b>, sinking, and game-over.</li>
+            <li>Game ends when all ships (2,3,5) are sunk.</li>
+          </ul>
+        </div>
+
+        <div class="card" id="finalCard" style="display:none;">
+          <div class="cardTitle">Game Over</div>
+          <div id="finalText" class="finalText"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Client → POST /fire → Server JSON → UI updates</span>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
