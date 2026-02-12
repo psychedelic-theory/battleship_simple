@@ -1,3 +1,78 @@
+Battleship Exam V3.0
+NEW FEATURE: Persistent Scoreboard (JSON-Based Storage)
+Description
+
+A persistent scoreboard was implemented using a JSON file stored on the server.
+The scoreboard tracks:
+  Games Played
+  Wins
+  Losses
+  Player Hits
+  Player Misses
+  CPU Hits
+  CPU Misses
+  Fastest Win Time (in seconds)
+
+The scoreboard is displayed in the right sidebar of the UI and updates automatically:
+  When the page loads
+  After a completed game
+  After refreshing the browser
+  After restarting the backend server
+
+Where State Lives (Architecture Explanation)
+The persistent scoreboard follows the server-authoritative model:
+Server (Authoritative):
+  Determines winner
+  Tracks hit/miss counts
+  Computes elapsed game time
+  Updates scoreboard values
+  Writes to scoreboard.json
+Exposes stats via GET /stats
+Client (Display Only):
+  Fetches /stats
+  Renders values into the Scoreboard card
+  Does NOT compute or modify statistics
+Persistence Method:
+  JSON file sored next to server.py
+  File name: scoreboard.json
+  Written only when a game transitions to the "over" phase
+This ensures:
+  Data persists across browser refresh
+  Data persists after Flask restart
+  No manual file editing required
+  Server remains authoritative
+
+
+Folder Structure (Submission Format)
+
+battleship_simple/
+  index.html
+  app.js
+  styles.css
+  scoreboard.json (auto-generated after first completed game)
+  server.py
+
+If separated:
+
+battleship_simple/
+  battleship_backend/
+    server.py
+    scoreboard.json
+  battleship_frontend/
+    index.html
+    app.js
+    styles.css
+
+Architecture Summary
+
+This project demonstrates:
+  Clear separation of client vs server responsibilities
+  Explicit state transitions (SETUP → PLAY → OVER)
+  Server-authoritative validation
+  Persistent storage using JSON
+  Clean integration of new features without breaking existing flow
+  Incremental, architecture-driven development
+
 BATTLESHIP V2+ (Web + Python Backend)
 ====================================
 
