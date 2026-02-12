@@ -244,6 +244,38 @@ body{
   box-shadow: 0 0 14px rgba(255,59,59,.15);
 }
 
+.scoreGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.scoreRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.scoreLabel {
+  opacity: 0.85;
+}
+
+.scoreValue {
+  font-weight: 700;
+}
+
+.scoreDivider {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  margin: 6px 0;
+}
+
+.scoreNote {
+  margin-top: 10px;
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
 
 /* Optional: make player-board cells feel “read-only” */
 #playerGridWrap .cell{ cursor: default; }

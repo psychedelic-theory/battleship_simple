@@ -1,0 +1,10 @@
+{
+  "games_played": 5,
+  "wins": 5,
+  "losses": 0,
+  "player_hits": 50,
+  "player_misses": 181,
+  "cpu_hits": 15,
+  "cpu_misses": 211,
+  "fastest_win_seconds": 19
+}

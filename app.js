@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:5001";
+const API_BASE = "http://localhost:5001";
 
 // --- DOM ---
 const playerGridWrap = document.getElementById("playerGridWrap");
@@ -16,6 +16,16 @@ const pHitsEl = document.getElementById("pHits");
 const pMissesEl = document.getElementById("pMisses");
 const cHitsEl = document.getElementById("cHits");
 const cMissesEl = document.getElementById("cMisses");
+
+// Optional scoreboard DOM (add these IDs in index.html if you want UI display)
+const sbGamesEl = document.getElementById("sbGames");
+const sbWinsEl = document.getElementById("sbWins");
+const sbLossesEl = document.getElementById("sbLosses");
+const sbPHitsEl = document.getElementById("sbPHits");
+const sbPMissesEl = document.getElementById("sbPMisses");
+const sbCHitsEl = document.getElementById("sbCHits");
+const sbCMissesEl = document.getElementById("sbCMisses");
+const sbFastestEl = document.getElementById("sbFastest");
 
 const LETTERS = "ABCDEFGHIJ".split("");
 
@@ -76,6 +86,47 @@ function setBoardEnabled(containerEl, enable){
 // CPU board gating
 function setCpuBoardClickable(enable){
   setBoardEnabled(cpuGridWrap, enable && started && !gameOver);
+}
+
+// --- Persistent Stats UI (client display only) ---
+async function apiStats(){
+  const res = await fetch(`${API_BASE}/stats`, { method:"GET" });
+  const data = await res.json().catch(()=> ({}));
+  if(!res.ok || !data.ok) throw new Error(data?.error || `Stats failed (HTTP ${res.status})`);
+  return data.scoreboard;
+}
+
+function renderStats(sb){
+  if(!sb) return;
+
+  if(sbGamesEl) sbGamesEl.textContent = sb.games_played ?? 0;
+  if(sbWinsEl) sbWinsEl.textContent = sb.wins ?? 0;
+  if(sbLossesEl) sbLossesEl.textContent = sb.losses ?? 0;
+
+  if(sbPHitsEl) sbPHitsEl.textContent = sb.player_hits ?? 0;
+  if(sbPMissesEl) sbPMissesEl.textContent = sb.player_misses ?? 0;
+  if(sbCHitsEl) sbCHitsEl.textContent = sb.cpu_hits ?? 0;
+  if(sbCMissesEl) sbCMissesEl.textContent = sb.cpu_misses ?? 0;
+
+  const fastest = sb.fastest_win_seconds;
+  if(sbFastestEl){
+    if(typeof fastest === "number"){
+      const m = Math.floor(fastest / 60);
+      const s = fastest % 60;
+      sbFastestEl.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    } else {
+      sbFastestEl.textContent = "—";
+    }
+  }
+}
+
+async function loadStats(){
+  try{
+    const sb = await apiStats();
+    renderStats(sb);
+  } catch(e){
+    console.warn("Stats load failed:", e?.message);
+  }
 }
 
 // --- Grid Rendering ---
@@ -349,6 +400,9 @@ function showGameOver(payload){
   }
 
   setStatus(`Game over. ${winnerLine}`);
+
+  // Pull persistent stats from server after game finishes (display only)
+  loadStats();
 }
 
 async function onCpuCellClick(cell){
@@ -453,6 +507,7 @@ async function onNewGame(){
   try{
     const data = await apiNew();
     enterSetupMode(data);
+    loadStats(); // show persistent stats even after refresh/restart
   } catch(e){
     console.error(e);
     setStatus(`Could not create new game. Check backend + CORS.`);
@@ -514,3 +569,4 @@ resetBtn?.addEventListener("click", onNewGame);
 
 // --- Init: blank state until New Game ---
 blankBoards();
+loadStats();

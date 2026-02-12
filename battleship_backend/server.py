@@ -3,6 +3,9 @@ from __future__ import annotations
 import time
 import uuid
 import random
+import os
+import json
+import threading
 from dataclasses import dataclass
 from typing import List, Tuple, Dict, Set, Optional
 
@@ -17,6 +20,78 @@ SHIP_SIZES = [2, 3, 5]
 # Setup placement order (largest to smallest)
 SETUP_ORDER = [5, 3, 2]
 Coord = Tuple[int, int]
+
+# -----------------------------
+# Persistent Scoreboard (JSON)
+# -----------------------------
+SCOREBOARD_PATH = os.path.join(os.path.dirname(__file__), "scoreboard.json")
+SCOREBOARD_LOCK = threading.Lock()
+
+def default_scoreboard() -> Dict:
+    return {
+        "games_played": 0,
+        "wins": 0,
+        "losses": 0,
+        "player_hits": 0,
+        "player_misses": 0,
+        "cpu_hits": 0,
+        "cpu_misses": 0,
+        "fastest_win_seconds": None,  # int or None
+    }
+
+def load_scoreboard() -> Dict:
+    if not os.path.exists(SCOREBOARD_PATH):
+        return default_scoreboard()
+    try:
+        with open(SCOREBOARD_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        base = default_scoreboard()
+        # merge so missing keys don't break
+        for k in base:
+            if k in data:
+                base[k] = data[k]
+        # basic type sanity
+        if base["fastest_win_seconds"] is not None and not isinstance(base["fastest_win_seconds"], int):
+            base["fastest_win_seconds"] = None
+        return base
+    except Exception:
+        # if file is corrupt, fall back (no manual editing required)
+        return default_scoreboard()
+
+def save_scoreboard(data: Dict) -> None:
+    # Atomic-ish write: write temp then replace
+    tmp_path = SCOREBOARD_PATH + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp_path, SCOREBOARD_PATH)
+
+def record_game_result(*, winner: str, elapsed_seconds: int, game: "GameState") -> None:
+    """
+    Server-authoritative scoreboard update.
+    Called exactly once per game when it transitions to over.
+    """
+    with SCOREBOARD_LOCK:
+        sb = load_scoreboard()
+
+        sb["games_played"] += 1
+
+        if winner == "player":
+            sb["wins"] += 1
+            # fastest win time only tracks player wins
+            cur = sb["fastest_win_seconds"]
+            if isinstance(elapsed_seconds, int) and elapsed_seconds >= 0:
+                if cur is None or elapsed_seconds < cur:
+                    sb["fastest_win_seconds"] = elapsed_seconds
+        else:
+            sb["losses"] += 1
+
+        # totals across all completed games
+        sb["player_hits"] += int(game.player_hits)
+        sb["player_misses"] += int(game.player_misses)
+        sb["cpu_hits"] += int(game.cpu_hits)
+        sb["cpu_misses"] += int(game.cpu_misses)
+
+        save_scoreboard(sb)
 
 
 def in_bounds(r: int, c: int) -> bool:
@@ -80,6 +155,9 @@ class GameState:
 
     # Setup progress
     setup_index: int  # which ship in SETUP_ORDER is next
+
+    # Prevent double-counting stats if /fire is called again after game over
+    stats_recorded: bool = False
 
     @property
     def over(self) -> bool:
@@ -191,6 +269,14 @@ def can_place_player_ship(game: GameState, cells: List[Coord]) -> bool:
     return True
 
 
+@app.get("/stats")
+def stats():
+    # Read-only endpoint; server is authority
+    with SCOREBOARD_LOCK:
+        sb = load_scoreboard()
+    return jsonify({"ok": True, "scoreboard": sb})
+
+
 @app.post("/new")
 def new_game():
     """Create a new SETUP session. CPU ships are placed, player ships are empty."""
@@ -210,6 +296,7 @@ def new_game():
         cpu_hits=0,
         cpu_misses=0,
         setup_index=0,
+        stats_recorded=False,
     )
 
     return jsonify({
@@ -314,10 +401,16 @@ def fire():
 
     if game.over:
         elapsed = int(time.time() - (game.start_time or time.time()))
+        winner = "player" if all_sunk(game.cpu_ships) else "cpu"
+        # If a game is over and hasn't been recorded yet (rare), record it.
+        if not game.stats_recorded:
+            record_game_result(winner=winner, elapsed_seconds=elapsed, game=game)
+            game.stats_recorded = True
+
         return jsonify({
             "ok": True,
             "game_over": True,
-            "winner": "player" if all_sunk(game.cpu_ships) else "cpu",
+            "winner": winner,
             "elapsed_seconds": elapsed,
             "player_hits": game.player_hits,
             "player_misses": game.player_misses,
@@ -356,6 +449,11 @@ def fire():
     if all_sunk(game.cpu_ships):
         game.phase = "over"
         elapsed = int(time.time() - (game.start_time or time.time()))
+        winner = "player"
+        if not game.stats_recorded:
+            record_game_result(winner=winner, elapsed_seconds=elapsed, game=game)
+            game.stats_recorded = True
+
         return jsonify({
             "ok": True,
             "player_shot": {"row": row, "col": col, "result": player_shot["result"]},
@@ -363,7 +461,7 @@ def fire():
             "cpu_shot": None,
             "cpu_ring_marks": [],
             "game_over": True,
-            "winner": "player",
+            "winner": winner,
             "elapsed_seconds": elapsed,
             "player_hits": game.player_hits,
             "player_misses": game.player_misses,
@@ -383,6 +481,11 @@ def fire():
     if all_sunk(game.player_ships):
         game.phase = "over"
         elapsed = int(time.time() - (game.start_time or time.time()))
+        winner = "cpu"
+        if not game.stats_recorded:
+            record_game_result(winner=winner, elapsed_seconds=elapsed, game=game)
+            game.stats_recorded = True
+
         return jsonify({
             "ok": True,
             "player_shot": {"row": row, "col": col, "result": player_shot["result"]},
@@ -390,7 +493,7 @@ def fire():
             "cpu_shot": {"row": cpu_r, "col": cpu_c, "result": cpu_shot["result"]},
             "cpu_ring_marks": cpu_shot["ring_marks"],
             "game_over": True,
-            "winner": "cpu",
+            "winner": winner,
             "elapsed_seconds": elapsed,
             "player_hits": game.player_hits,
             "player_misses": game.player_misses,
